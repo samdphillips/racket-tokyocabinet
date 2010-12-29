@@ -142,4 +142,65 @@
         (val : _bytes) (_int = (bytes-length val))
         -> (_hdb-result 'tc-hdb-put-cat hdb)))
 
+(define-tc tc-hdb-out
+  (_fun (hdb : _tc-hdb)
+        (key : _bytes) (_int = (bytes-length key))
+        -> (_hdb-result 'tc-hdb-out hdb)))
+
+(define-tc tc-hdb-vsiz
+  (_fun (hdb : _tc-hdb)
+        (key : _bytes) (_int = (bytes-length key))
+        -> (val : _int)
+        -> (cond [(< val 0) #f]
+                 [else val])))
+
+(define-tc tc-hdb-iter-init
+  (_fun (hdb : _tc-hdb)
+        -> (_hdb-result 'tc-hdb-iter-init hdb)))
+
+(define-tc tc-hdb-iter-next
+  (_fun (hdb : _tc-hdb)
+        (size : (_ptr o _int))
+        -> (key : _pointer)
+        -> (if key
+               (let ([k (make-bytes size)])
+                 (memcpy k key size)
+                 (free key)
+                 k)
+               #f)))
+
+
+(define tc-hdb-iter-next/key       tc-hdb-iter-next)
+
+#;
+(define tc-hdb-iter-next/key+value tc-hdb-iter-next3)
+
+(define-tc tc-hdb-rnum
+  (_fun (hdb : _tc-hdb)
+        -> _uint64))
+
+(define-tc tc-hdb-vanish
+  (_fun (hdb : _tc-hdb)
+        -> (_hdb-result 'tc-hdb-vanish hdb)))
+
+(define-tc tc-hdb-copy
+  (_fun (hdb : _tc-hdb) _path
+        -> (_hdb-result 'tc-hdb-copy hdb)))
+
+(define-tc tc-hdb-tran-begin
+  (_fun (hdb : _tc-hdb)
+        -> (_hdb-result 'tc-hdb-tran-begin hdb)))
+
+(define-tc tc-hdb-tran-commit
+  (_fun (hdb : _tc-hdb)
+        -> (_hdb-result 'tc-hdb-tran-commit hdb)))
+
+(define-tc tc-hdb-tran-abort
+  (_fun (hdb : _tc-hdb)
+        -> (_hdb-result 'tc-hdb-tran-abort hdb)))
+
+(define-tc tc-hdb-path
+  (_fun (hdb : _tc-hdb)
+        -> _string))
+
 (provide (all-defined-out))

@@ -3,7 +3,7 @@
 (require ffi/unsafe)
 
 (define libtc
-  (ffi-lib "libtokyocabinet" "1"))
+  (ffi-lib "libtokyocabinet"))
 
 (define-syntax define-tc
   (syntax-rules ()

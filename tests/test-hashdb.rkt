@@ -1,7 +1,7 @@
-#lang planet samdphillips/testy
-"Test Hash DB lib"
+#lang racket/base
 
-(require "../tokyocabinet/tc.rkt")
+(require rackunit
+         "../tokyocabinet/tc.rkt")
 
 (test-case "tc-hdb-new/tc-hdb-del"
   (let ([hdb (tc-hdb-new)])

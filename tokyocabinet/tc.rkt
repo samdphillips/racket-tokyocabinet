@@ -2,6 +2,7 @@
 
 (require (for-syntax racket/base)
          ffi/unsafe
+         ffi/unsafe/alloc
          racket/stxparam)
 
 (define libtc
@@ -82,9 +83,21 @@
 
 (define-check-type _hdb-result check-hdb-error)
 
+;; TODO: use security guard-ish for tc-hdb-open
+;; TODO: make-sized-byte-string for returned values
+;; TODO: inventory hdb api
+;; TODO: docs
+
 (define-tc tc-version    _string)
-(define-tc tc-hdb-new    (_fun           -> _tc-hdb))
-(define-tc tc-hdb-del    (_fun _tc-hdb   -> _void))
+
+(define-tc tc-hdb-del
+  (_fun _tc-hdb -> _void)
+  #:wrap (deallocator))
+
+(define-tc tc-hdb-new
+  (_fun -> _tc-hdb)
+  #:wrap (allocator tc-hdb-del))
+
 (define-tc tc-hdb-ecode  (_fun _tc-hdb   -> _tc-ecode))
 (define-tc tc-hdb-errmsg (_fun _tc-ecode -> _string))
 

@@ -1,17 +1,24 @@
-#lang racket
+#lang racket/base
 
-(require ffi/unsafe)
+(require (for-syntax racket/base)
+         ffi/unsafe
+         racket/stxparam)
 
 (define libtc
   (ffi-lib "libtokyocabinet"))
 
+(define-syntax-parameter tc-proc-name 
+  (lambda (stx)
+    (raise-syntax-error #f "cannot use outside of define-tc" stx)))
+
 (define-syntax define-tc
   (syntax-rules ()
-    [(_ id type #:wrap w)
+    [(_ id type #:wrap wrap)
      (define id
-       (let ([f (get-ffi-obj (regexp-replaces 'id '((#rx"-" "")))
-                             libtc type)])
-         (w f)))]
+       (syntax-parameterize ([tc-proc-name (lambda (stx)
+                                             (syntax (quote id)))])
+         (wrap (get-ffi-obj (regexp-replaces 'id '((#rx"-" "")))
+                            libtc type))))]
     [(_ id type)
      (define-tc id type #:wrap values)]))
 
@@ -20,6 +27,8 @@
     [(_ name checkf)
      (define-fun-syntax name
        (syntax-rules ()
+         [(_ what)
+          (name (tc-proc-name) what)]
          [(_ who what)
           (type: _bool
            post: (r => (checkf who what r)))]))]))
@@ -85,14 +94,14 @@
 
 (define-tc tc-hdb-open  
   (_fun (hdb : _tc-hdb) _path _omode 
-        -> (_hdb-result 'tc-hdb-open hdb))
+        -> (_hdb-result hdb))
   #:wrap (lambda (f)
            (lambda (h p [mode '(read write create)])
              (f h p mode))))
 
 (define-tc tc-hdb-close 
   (_fun (hdb : _tc-hdb) 
-        -> (_hdb-result 'tc-hdb-close hdb)))
+        -> (_hdb-result hdb)))
 
 (define (call-with-tc-hdb file #:options [opts '(write create)] proc)
   (call-with-continuation-barrier
@@ -115,7 +124,7 @@
   (_fun (hdb : _tc-hdb) 
         (key : _bytes) (_int = (bytes-length key))
         (val : _bytes) (_int = (bytes-length val))
-        -> (_hdb-result 'tc-hdb-put hdb)))
+        -> (_hdb-result hdb)))
 
 (define-tc tc-hdb-get
   (_fun (hdb : _tc-hdb)
@@ -128,19 +137,19 @@
                         v)]
                  [(eq? 'no-record (tc-hdb-ecode hdb)) #f]
                  [else
-                   (hdb-error 'tc-hdb-get hdb)])))
+                   (hdb-error (tc-proc-name) hdb)])))
 
 (define-tc tc-hdb-put-keep
   (_fun (hdb : _tc-hdb)
         (key : _bytes) (_int = (bytes-length key))
         (val : _bytes) (_int = (bytes-length val))
-        -> (_hdb-result 'tc-hdb-put-keep hdb)))
+        -> (_hdb-result hdb)))
 
 (define-tc tc-hdb-put-cat
   (_fun (hdb : _tc-hdb)
         (key : _bytes) (_int = (bytes-length key))
         (val : _bytes) (_int = (bytes-length val))
-        -> (_hdb-result 'tc-hdb-put-cat hdb)))
+        -> (_hdb-result hdb)))
 
 (define-tc tc-hdb-out
   (_fun (hdb : _tc-hdb)
@@ -156,7 +165,7 @@
 
 (define-tc tc-hdb-iter-init
   (_fun (hdb : _tc-hdb)
-        -> (_hdb-result 'tc-hdb-iter-init hdb)))
+        -> (_hdb-result hdb)))
 
 (define-tc tc-hdb-iter-next
   (_fun (hdb : _tc-hdb)
@@ -181,23 +190,23 @@
 
 (define-tc tc-hdb-vanish
   (_fun (hdb : _tc-hdb)
-        -> (_hdb-result 'tc-hdb-vanish hdb)))
+        -> (_hdb-result hdb)))
 
 (define-tc tc-hdb-copy
   (_fun (hdb : _tc-hdb) _path
-        -> (_hdb-result 'tc-hdb-copy hdb)))
+        -> (_hdb-result hdb)))
 
 (define-tc tc-hdb-tran-begin
   (_fun (hdb : _tc-hdb)
-        -> (_hdb-result 'tc-hdb-tran-begin hdb)))
+        -> (_hdb-result hdb)))
 
 (define-tc tc-hdb-tran-commit
   (_fun (hdb : _tc-hdb)
-        -> (_hdb-result 'tc-hdb-tran-commit hdb)))
+        -> (_hdb-result hdb)))
 
 (define-tc tc-hdb-tran-abort
   (_fun (hdb : _tc-hdb)
-        -> (_hdb-result 'tc-hdb-tran-abort hdb)))
+        -> (_hdb-result hdb)))
 
 (define-tc tc-hdb-path
   (_fun (hdb : _tc-hdb)

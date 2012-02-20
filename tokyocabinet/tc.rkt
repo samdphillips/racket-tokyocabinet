@@ -44,7 +44,9 @@
       create   = #b100
       truncate = #b1000
       nolock   = #b10000
-      noblock  = #b100000)))
+      noblock  = #b100000
+      tsync    = #b1000000
+      )))
 
 (define _tc-ecode
   (_enum

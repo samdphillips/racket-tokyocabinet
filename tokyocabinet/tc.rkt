@@ -1,8 +1,11 @@
 #lang racket/base
 
 (require (for-syntax racket/base)
+         ffi/file
          ffi/unsafe
          ffi/unsafe/alloc
+         (only-in racket/dict
+                  dict-ref)
          racket/stxparam)
 
 (define libtc
@@ -114,11 +117,23 @@
 ;; tchdbtune
 ;; tchdbsetcache
 
+(define (mode->perms mode)
+  (define m->p
+    '([read     read]
+      [write    read write]
+      [create   read write]
+      [truncate read write]))
+  (for*/fold ([perms null]) ([m (in-list mode)]
+                             [v (in-list (dict-ref m->p m null))])
+    (if (memq v perms) perms (cons v perms))))
+
 (define-tc tc-hdb-open  
-  (_fun (hdb : _tc-hdb) _path _omode 
+  (_fun (hdb : _tc-hdb) _path _omode
         -> (_hdb-result hdb))
   #:wrap (lambda (f)
            (lambda (h p [mode '(read write create)])
+             (security-guard-check-file
+               (tc-proc-name) p (mode->perms mode))
              (f h p mode))))
 
 (define-tc tc-hdb-close 

@@ -220,6 +220,7 @@
 
 (define tc-hdb-iter-next/key       tc-hdb-iter-next)
 
+;;; XXX: implement this in terms of iter-next and get
 #;
 (define tc-hdb-iter-next/key+value tc-hdb-iter-next3)
 
@@ -231,6 +232,7 @@
   (_fun (hdb : _tc-hdb)
         -> (_hdb-result hdb)))
 
+;; XXX: check path with security guard
 (define-tc tc-hdb-copy
   (_fun (hdb : _tc-hdb) _path
         -> (_hdb-result hdb)))
@@ -247,6 +249,7 @@
   (_fun (hdb : _tc-hdb)
         -> (_hdb-result hdb)))
 
+;; XXX: should this return a _path ?
 (define-tc tc-hdb-path
   (_fun (hdb : _tc-hdb)
         -> _string))

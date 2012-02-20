@@ -70,7 +70,14 @@
       no-record
       misc-error = 9999)))
 
-(define-cpointer-type _tc-hdb)
+(struct tc-hdb (handle) #:mutable)
+
+(define _tc-hdb
+  (make-ctype _pointer
+              (lambda (x)
+                (or (tc-hdb-handle x)
+                    (error 'tc-hdb "disposed tc-hdb handle")))
+              tc-hdb))
 
 ;;; FIXME: probably should categorize kinds of exceptions
 (define (check-hdb-error who hdb result)
@@ -91,7 +98,9 @@
 (define-tc tc-version    _string)
 
 (define-tc tc-hdb-del
-  (_fun _tc-hdb -> _void)
+  (_fun (handle : _tc-hdb)
+        -> _void
+        -> (set-tc-hdb-handle! handle #f))
   #:wrap (deallocator))
 
 (define-tc tc-hdb-new

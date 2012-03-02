@@ -1,142 +1,31 @@
 #lang racket/base
 
-(require (for-syntax racket/base)
-         ffi/file
-         ffi/unsafe
-         ffi/unsafe/alloc
-         (only-in racket/dict
-                  dict-ref)
-         racket/stxparam)
+(require "base.rkt")
 
-(define libtc
-  (ffi-lib "libtokyocabinet"))
-
-(define-syntax-parameter tc-proc-name 
-  (lambda (stx)
-    (raise-syntax-error #f "cannot use outside of define-tc" stx)))
-
-(define-syntax define-tc
-  (syntax-rules ()
-    [(_ id type #:wrap wrap)
-     (define id
-       (syntax-parameterize ([tc-proc-name (lambda (stx)
-                                             (syntax (quote id)))])
-         (wrap (get-ffi-obj (regexp-replaces 'id '((#rx"-" "")))
-                            libtc type))))]
-    [(_ id type)
-     (define-tc id type #:wrap values)]))
-
-(define-syntax define-check-type
-  (syntax-rules ()
-    [(_ name checkf)
-     (define-fun-syntax name
-       (syntax-rules ()
-         [(_ what)
-          (name (tc-proc-name) what)]
-         [(_ who what)
-          (type: _bool
-           post: (r => (checkf who what r)))]))]))
-
-(define _omode
-  (_bitmask
-    '(read     = #b1
-      write    = #b10
-      create   = #b100
-      truncate = #b1000
-      nolock   = #b10000
-      noblock  = #b100000
-      tsync    = #b1000000
-      )))
-
-(define _tc-ecode
-  (_enum
-    '(success
-      thread-error
-      invalid-op
-      no-file
-      no-perm
-      invalid-metadata
-      invalid-record-header
-      open-error
-      close-error
-      truncate-error
-      sync-error
-      stat-error
-      seek-error
-      read-error
-      write-error
-      mmap-error
-      lock-error
-      unlink-error
-      rename-error
-      mkdir-error
-      rmdir-error
-      existing-record
-      no-record
-      misc-error = 9999)))
-
-(struct tc-hdb (handle) #:mutable)
-
-(define _tc-hdb
-  (make-ctype _pointer
-              (lambda (x)
-                (or (tc-hdb-handle x)
-                    (error 'tc-hdb "disposed tc-hdb handle")))
-              tc-hdb))
-
-;;; FIXME: probably should categorize kinds of exceptions
-(define (check-hdb-error who hdb result)
-  (unless result
-    (hdb-error who hdb)))
-
-(define (hdb-error who hdb)
-  (error who "tokyo cabinet error: ~a"
-         (tc-hdb-errmsg (tc-hdb-ecode hdb))))
-
-(define-check-type _hdb-result check-hdb-error)
-
-;; TODO: use security guard-ish for tc-hdb-open
 ;; TODO: make-sized-byte-string for returned values
 ;; TODO: inventory hdb api
 ;; TODO: docs
 
-(define-tc tc-version    _string)
+(require ffi/unsafe)
 
-(define-tc tc-hdb-del
-  (_fun (handle : _tc-hdb)
-        -> _void
-        -> (set-tc-hdb-handle! handle #f))
-  #:wrap (deallocator))
-
-(define-tc tc-hdb-new
-  (_fun -> _tc-hdb)
-  #:wrap (allocator tc-hdb-del))
+(define-tc-file-type tc-hdb)
 
 (define-tc tc-hdb-ecode  (_fun _tc-hdb   -> _tc-ecode))
 (define-tc tc-hdb-errmsg (_fun _tc-ecode -> _string))
+
+(define (tc-hdb-error who hdb)
+  (error who "tokyo cabinet error: ~a"
+         (tc-hdb-errmsg (tc-hdb-ecode hdb))))
+
+(define-check-type _hdb-result tc-hdb-error)
 
 ;; tchdbsetmutex
 ;; tchdbtune
 ;; tchdbsetcache
 
-(define (mode->perms mode)
-  (define m->p
-    '([read     read]
-      [write    read write]
-      [create   read write]
-      [truncate read write]))
-  (for*/fold ([perms null]) ([m (in-list mode)]
-                             [v (in-list (dict-ref m->p m null))])
-    (if (memq v perms) perms (cons v perms))))
-
 (define-tc tc-hdb-open  
-  (_fun (hdb : _tc-hdb) _path _omode
-        -> (_hdb-result hdb))
-  #:wrap (lambda (f)
-           (lambda (h p [mode '(read write create)])
-             (security-guard-check-file
-               (tc-proc-name) p (mode->perms mode))
-             (f h p mode))))
+  (_fun (hdb : _tc-hdb) _path _tc-omode -> (_hdb-result hdb))
+  #:wrap (tc-open-wrapper (tc-proc-name)))
 
 (define-tc tc-hdb-close 
   (_fun (hdb : _tc-hdb) 
@@ -144,20 +33,20 @@
 
 (define (call-with-tc-hdb file #:options [opts '(write create)] proc)
   (call-with-continuation-barrier
-    (lambda ()
-      (let ([hdb (tc-hdb-new)])
-        (dynamic-wind
-          void
-          (lambda ()
-            (tc-hdb-open hdb file opts)
-            (dynamic-wind
-              void
-              (lambda ()
-                (proc hdb))
-              (lambda ()
-                (tc-hdb-close hdb))))
-          (lambda ()
-            (tc-hdb-del hdb)))))))
+   (lambda ()
+     (let ([hdb (tc-hdb-new)])
+       (dynamic-wind
+        void
+        (lambda ()
+          (tc-hdb-open hdb file opts)
+          (dynamic-wind
+           void
+           (lambda ()
+             (proc hdb))
+           (lambda ()
+             (tc-hdb-close hdb))))
+        (lambda ()
+          (tc-hdb-del hdb)))))))
 
 (define-tc tc-hdb-put
   (_fun (hdb : _tc-hdb) 
@@ -176,7 +65,7 @@
                         v)]
                  [(eq? 'no-record (tc-hdb-ecode hdb)) #f]
                  [else
-                   (hdb-error (tc-proc-name) hdb)])))
+                  (tc-hdb-error (tc-proc-name) hdb)])))
 
 (define-tc tc-hdb-put-keep
   (_fun (hdb : _tc-hdb)
